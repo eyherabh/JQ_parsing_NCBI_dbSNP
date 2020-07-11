@@ -8,7 +8,7 @@ Questions and answers about
 
 ## Listing all top-level keys
 
-The advice given by [[1]] works for arrays of JSON objects. However, it does not work for the dbSNP JSON files because each record is a separate object. Instead, consider using the following (requires jq >=1.5)
+The advice given by [[1]] works for arrays of JSON objects. However, it does not work for the dbSNP JSON files. The problem is caused by the dbSNP JSON files containing not an array of JSON objects. Instead, they contain one JSON object per line, also known as JSON lines [[5]]. Therefore, to get a list of all top-level keys without repetition, consider using the following (requires jq >=1.5)
 ```jq
 [inputs] | add | keys
 ```
@@ -38,8 +38,10 @@ The script starts by defining the function `get_len` which computes the length o
 [2]: https://github.com/ncbi/dbsnp/blob/master/tutorials/rsjson_demo.py
 [3]: https://stedolan.github.io/jq/manual/#TypesandValues
 [4]: https://github.com/stedolan/jq/wiki/FAQ
+[5]: https://programminghistorian.org/en/lessons/json-and-jq#json-vs-json-lines
 
 1. https://github.com/stedolan/jq/wiki/Cookbook#list-keys-used-in-any-object-in-a-list
 2. https://github.com/ncbi/dbsnp/blob/master/tutorials/rsjson_demo.py
 3. https://stedolan.github.io/jq/manual/#TypesandValues
-4: How can a stream of JSON entities be collected together in an array? https://github.com/stedolan/jq/wiki/FAQ
+4. How can a stream of JSON entities be collected together in an array? https://github.com/stedolan/jq/wiki/FAQ
+5. https://programminghistorian.org/en/lessons/json-and-jq#json-vs-json-lines
