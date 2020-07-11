@@ -54,11 +54,9 @@ Another solution was proposed there in [[6]], and also in [[8]], which can expor
 
 ## A demo parser for NCBI dbSNP
 
-Under construction
+Under construction. The whole script can be found in [dbSNP_demo_parser.jq]
 
 ```jq
-#!/usr/bin/jq -f
-
 def get_ptlp:
   select(has("primary_snapshot_data")) 
   | .primary_snapshot_data.placements_with_allele
@@ -81,14 +79,6 @@ def demo_filter:
   | . + .alleles
   | del(.alleles)
 ;
-
-def to_tsvh:
-  (.[0] | keys_unsorted) as $colnames
-  | $colnames, map([.[$colnames[]]])[]
-  | @tsv
-;
-
-[ inputs | demo_filter ] | to_tsvh 
 ```
 
 ## References
