@@ -8,28 +8,45 @@ Questions and answers about
 
 ## Listing all top-level keys
 
-The advice given by [[1]] works for arrays of JSON objects. However, it does not work for the dbSNP JSON files. The problem is caused by the dbSNP JSON files containing not an array of JSON objects. Instead, they contain one JSON object per line, also known as JSON lines [[5]]. Therefore, to get a list of all top-level keys without repetition, consider using the following (requires jq >=1.5)
+The advice given by [[1]] works for arrays of JSON objects. However, it does not work for the dbSNP JSON files. Running 
 ```jq
-[inputs] | add | keys
+< refsnp-chrMT.json jq 'add | keys'
 ```
+produces a sequence of errors like the following
+```
+jq: error (at <stdin>:1): string ("89362000-0...) and array ([]) cannot be added
+```
+
+The problem is caused by the dbSNP JSON files containing not an array of JSON objects, but one JSON object per line, also known as JSON lines [[5]]. Therefore, to get a list of all top-level keys without repetition, consider using the following (requires jq >=1.5)
+```bash
+< refsnp-chrMT.json jq -n '[ inputs ] | add | keys'
+```
+
+The `-n` flag is important: without it, the first json line would be ignored in the result.
 
 ## How many assemmbly names?
 
 For each record in the dbSNP JSON files, the demo parser script provided by the NCBI dbSNP repository [[2]] extracts the assembly name as the first element of `seq_id_traits_by_assembly` provided certain conditions. However, that element may contain more than one assembly name, e.g. in the MT sequence. The question then arises about how long the `seq_id_traits_by_assembly` arrays are.
 
-To answer this question, consider the following script
+To answer this question, consider creating a module called `libdbsnp.jq` with the following function
 ```jq
-def get_len:
+def get_num_asm(cond):
   select(has("primary_snapshot_data")) 
   | .primary_snapshot_data.placements_with_allele
-  | map(select(true == .is_ptlp))
+  | map(select(cond))
   | map(.placement_annot.seq_id_traits_by_assembly)
   | map(length);
-       
-[ inputs | get_len[] ] | unique[]
 ```
+The function `get_num_asm` computes the number of assembly names (i.e. the length of the element `seq_id_traits_by_assembly`) for each entry satisfying the condition `cond`. In this case, the condition only preserves the entries for which `is_ptlp` is `true`. Applying that function directly, namely
+```bash
+jq 'include "libdbsnp"; get_num_asm'
+```
+would produce a sequence of results, but not an array of results. Wrapping it between square brackets or using `reduce` as indicated in [[3]] and [[4]] was of not help. Instead, execute the following command
+```bash
+jq -n 'include "libdbsnp"; [ inputs | get_num_asm(true == .is_ptlp) ] | unique'
+```
+which generated the array of results that can be passed to `unique`. As before, the script should be run with the flag `-n` activated.
 
-The script starts by defining the function `get_len` which computes the length of the element `seq_id_traits_by_assembly` when certain conditions are met. Applying that function directly, as in `jq 'get_len`, would produce a sequence of results, but not an array of results. Wrapping it between square brackets or using `reduce` as indicated in [[3]] and [[4]] was of not help. Instead, I applied that function to `inputs`, and wrap it all in square brackets, which generated the array of results that can be passed to `unique`.
 
 
 ## Exporting tables in tsv format
@@ -52,34 +69,42 @@ This function creates the column names of the tsv file based on the keys of the 
 
 Another solution was proposed there in [[6]], and also in [[8]], which can export tables in which some of the keys are missing in some of the results. This solution is more general than the one I chose, but it is unnecessary and less efficient for the case under consideration. 
 
-## A demo parser for NCBI dbSNP
+## A jq demo parser for NCBI dbSNP
 
-Under construction. The whole script can be found in [dbSNP_demo_parser.jq]
+The demo parser the the dbSNP JSONs provided in [[2]] only extracts information when `is_ptlp` is true, and is only correct when `seq_id_traits_by_assembly` is a singleton. Instead, I will build a demo parser that takes into account both the possibility that `seq_id_traits_by_assembly` by empty or have multiple values, and all positions regardless of which ones are preferred. To that end, consider the functions defined in (dbSNP_demo_parser.jq) reproduced below
 
 ```jq
-def get_ptlp:
-  select(has("primary_snapshot_data")) 
-  | .primary_snapshot_data.placements_with_allele
-  | map(select(true == .is_ptlp))
-;
-
 def get_asm_name:
-  map(.placement_annot.seq_id_traits_by_assembly[].assembly_name)
+  .placement_annot.seq_id_traits_by_assembly[].assembly_name // null 
 ;
 
 def get_alleles:
-  map(.alleles[].allele.spdi)
-  | map(select(.inserted_sequence!=.deleted_sequence))
+  .alleles[].allele.spdi | select(.inserted_sequence!=.deleted_sequence)
 ;
 
 def demo_filter:
   .refsnp_id as $rs
-  | get_ptlp
-  | { rsid: $rs, alleles: get_alleles[], asm_name: get_asm_name[] }    
+  | select(has("primary_snapshot_data")) 
+  | .primary_snapshot_data.placements_with_allele[]
+  | { rsid: $rs, is_ptlp, alleles:  get_alleles , asm_name: get_asm_name }
   | . + .alleles
   | del(.alleles)
 ;
+
+def to_tsvh:
+  (.[0] | keys_unsorted) as $colnames
+  | $colnames, map([.[$colnames[]]])[]
+  | @tsv
+;
 ```
+
+Equiped with these functions, one can extract, for example, all the positions for the assembly GRCh38.p12 by running
+```bash
+jq -n -r 'include "dbSNP_demo_parser";
+[ inputs | demo_filter | select(.asm_name=="GRCh38.p12") ] | to_tsvh'
+```
+A more practical script is given in (jq_dbSNP_parser.sh) which allows for arbitrary conditions.
+
 
 ## References
 
