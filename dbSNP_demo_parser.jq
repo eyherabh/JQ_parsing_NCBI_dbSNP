@@ -1,4 +1,4 @@
-#!/usr/bin/jq -f
+# jq definitions for converting dbSNP jsons into tables analogous to those from the NCBI dbSNP demo parser.
 #
 # Copyright (c) 2020 Ph.D. Hugo Gabriel Eyherabide
 #
@@ -15,25 +15,19 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-def get_ptlp:
-  select(has("primary_snapshot_data")) 
-  | .primary_snapshot_data.placements_with_allele
-  | map(select(true == .is_ptlp))
-;
-
 def get_asm_name:
-  map(.placement_annot.seq_id_traits_by_assembly[].assembly_name)
+  .placement_annot.seq_id_traits_by_assembly[].assembly_name // null 
 ;
 
 def get_alleles:
-  map(.alleles[].allele.spdi)
-  | map(select(.inserted_sequence!=.deleted_sequence))
+  .alleles[].allele.spdi | select(.inserted_sequence!=.deleted_sequence)
 ;
 
 def demo_filter:
   .refsnp_id as $rs
-  | get_ptlp
-  | { rsid: $rs, alleles: get_alleles[], asm_name: get_asm_name[] }    
+  | select(has("primary_snapshot_data")) 
+  | .primary_snapshot_data.placements_with_allele[]
+  | { rsid: $rs, is_ptlp, alleles:  get_alleles , asm_name: get_asm_name }
   | . + .alleles
   | del(.alleles)
 ;
@@ -43,5 +37,3 @@ def to_tsvh:
   | $colnames, map([.[$colnames[]]])[]
   | @tsv
 ;
-
-[ inputs | demo_filter ] | to_tsvh 
