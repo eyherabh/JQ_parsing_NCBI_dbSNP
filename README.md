@@ -71,7 +71,7 @@ Another solution was proposed there in [[6]], and also in [[8]], which can expor
 
 ## A jq demo parser for NCBI dbSNP
 
-The demo parser the the dbSNP JSONs provided in [[2]] only extracts information when `is_ptlp` is true, and is only correct when `seq_id_traits_by_assembly` is a singleton. Instead, I will build a demo parser that takes into account both the possibility that `seq_id_traits_by_assembly` by empty or have multiple values, and all positions regardless of which ones are preferred. To that end, consider the functions defined in (dbSNP_demo_parser.jq) reproduced below
+The demo parser the the dbSNP JSONs provided in [[2]] only extracts information when `is_ptlp` is true, and is only correct when `seq_id_traits_by_assembly` is a singleton. Instead, I will build a demo parser that takes into account both the possibility that `seq_id_traits_by_assembly` by empty or have multiple values, and all positions regardless of which ones are preferred. To that end, consider the functions defined [here](dbSNP_demo_parser.jq) reproduced below
 
 ```jq
 def get_asm_name:
@@ -103,7 +103,7 @@ Equiped with these functions, one can extract, for example, all the positions fo
 jq -n -r 'include "dbSNP_demo_parser";
 [ inputs | demo_filter | select(.asm_name=="GRCh38.p12") ] | to_tsvh'
 ```
-A more practical script is given in (jq_dbSNP_parser.sh) which allows for arbitrary conditions.
+A more practical script is given [here](jq_dbSNP_parser.sh) which allows for arbitrary conditions.
 
 
 ## References
