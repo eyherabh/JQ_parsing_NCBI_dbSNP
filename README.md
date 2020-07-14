@@ -71,7 +71,9 @@ Another solution was proposed there in [[6]], and also in [[8]], which can expor
 
 ## A jq demo parser for NCBI dbSNP
 
-The demo parser the the dbSNP JSONs provided in [[2]] only extracts information when `is_ptlp` is true, and is only correct when `seq_id_traits_by_assembly` is a singleton. Instead, I will build a demo parser that takes into account both the possibility that `seq_id_traits_by_assembly` by empty or have multiple values, and all positions regardless of which ones are preferred. To that end, consider the functions defined [here](dbSNP_demo_parser.jq) reproduced below
+The demo parser the the dbSNP JSONs provided in [[2]] only extracts information when `is_ptlp` is true, and is only correct when `seq_id_traits_by_assembly` is a singleton. Instead, I will build a demo parser that takes into account both the possibility that `seq_id_traits_by_assembly` by empty or have multiple values, and all positions regardless of which ones are preferred. 
+
+To that end, consider the functions defined [here](dbSNP_demo_parser.jq) reproduced below
 
 ```jq
 def get_asm_name:
@@ -97,13 +99,59 @@ def to_tsvh:
   | @tsv
 ;
 ```
-
 Equiped with these functions, one can extract, for example, all the positions for the assembly GRCh38.p12 by running
 ```bash
 jq -n -r 'include "dbSNP_demo_parser";
 [ inputs | demo_filter | select(.asm_name=="GRCh38.p12") ] | to_tsvh'
 ```
-A more practical script is given [here](jq_dbSNP_parser.sh) which allows for arbitrary conditions.
+
+### Explanation
+
+The command starts by invoking `jq` with the `-n` and `-r` flags. The reason for the `-n` flag was explained before. The `-r` flag is used for producing the results as raw strings, e.g. `A	B` instead of `"A\tB"`. 
+
+The jq script (i.e. the part between single quotes) starts by piping the JSON lines into the `demo_filter` function. This function builds one or many objects depending on the output produced by the functions `get_alleles` and `get_asm_name`. These two functions operate on arrays (as per the dbSNP JSON schema) and return a list of objects (as opposed to an array). If both lists contain a single object, then `demo_filter` produces a single object. However, if any of them contains multiple objects, say `N` and `M`, then `demo_filter` will procude `NxM` objects (`x` denoting multiplication), built from the Cartesian product of the lists. 
+
+For example, consider the commands
+```
+jq -n 'def a: 1,2; def b: 3,4; {  "a": a, "b": b}' 
+jq -n 'def a: [1,2]; def b: [3,4]; {  "a": a, "b": b}' 
+```
+The first command produces
+```
+{
+  "a": 1,
+  "b": 3
+}
+{
+  "a": 1,
+  "b": 4
+}
+{
+  "a": 2,
+  "b": 3
+}
+{
+  "a": 2,
+  "b": 4
+}
+```
+whereas the last command produces
+```
+{
+  "a": [
+    1,
+    2
+  ],
+  "b": [
+    3,
+    4
+  ]
+}
+```
+
+However, the array onto which `get_asm_name` operates may be empty, in which case no object would be produce. Because I would rather have an object with the asm_name empty, I wrote `get_asm_name` so that it produces `null` in that case, thereby preserving positions and alleles in the cases where `asm_name` is empty.
+
+Those and other cases can be later removed by filtering through the `select` statement. To allow for more flexibility, I wrote the bash script [jq_dbSNP_parser.sh] which allows for arbitrary selections.
 
 
 ## References
