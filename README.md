@@ -153,6 +153,17 @@ However, the array onto which `get_asm_name` operates may be empty, in which cas
 
 Those and other cases can be later removed by filtering through the `select` statement. To allow for more flexibility, I wrote the bash script [jq_dbSNP_parser.sh] which allows for arbitrary selections.
 
+## Downloading and parsing in parallel
+
+To download and parse the NCBI dbSNP JSON files concurrently, consider the following command
+```
+rsfile="refsnp-chrMT.json.bz2"  
+curl -s "ftp://ftp.ncbi.nih.gov/snp/latest_release/JSON/$rsfile" \
+  | tee >(md5sum > "md5sum.$rsfile") \
+  | bzip2 -dcq \
+  | jq ... \
+```
+where `...` should be replaced by suitable values for the jq invocation. This script computes the md5sum for later comparison with the one in the NCBI dbSNP repository.
 
 ## References
 
