@@ -1,4 +1,4 @@
-# Using JQ by parsing NCBI dbSNP
+# Using JQ for parsing NCBI dbSNP
 
 Questions and answers about 
 
